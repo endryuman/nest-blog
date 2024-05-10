@@ -8,19 +8,27 @@ import {
 import { GetPostsDto } from './dto/get-posts.dto';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
-import { postRepository } from './post.repository';
 import { Post } from './post.entity';
+import { CategoriesService } from 'src/categories/categories.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { postRepository } from './post.repository';
 
 @Injectable()
 export class PostsService {
-  constructor(private readonly postRepository: postRepository) {}
+  constructor(
+    private readonly postRepository: postRepository,
+    private categoriesService: CategoriesService,
+  ) {}
 
   getAllPosts(@Query() getPostsDto: GetPostsDto): Promise<Post[]> {
     return this.postRepository.getPosts(getPostsDto);
   }
 
   async getPostById(@Param('id') id: string): Promise<Post[]> {
-    const post = await this.postRepository.findBy({ id });
+    const post = await this.postRepository.find({
+      where: { id },
+      relations: ['category'],
+    });
 
     if (!post.length) {
       throw new NotFoundException('Post not found');
@@ -28,8 +36,12 @@ export class PostsService {
     return post;
   }
 
-  createPost(@Body() createPostDto: CreatePostDto): Promise<Post> {
+  async createPost(@Body() createPostDto: CreatePostDto): Promise<Post> {
     const newPost = this.postRepository.create(createPostDto);
+    const category = await this.categoriesService.getCategoryById(
+      createPostDto.categoryId,
+    );
+    newPost.category = category[0];
     return this.postRepository.save(newPost);
   }
 
